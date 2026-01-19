@@ -1,0 +1,5 @@
+[project]
+name = "kernel-mcp"
+version = "1.0.0"
+description = "Kernel MCP Server"
+requires-python = ">=3.10"
