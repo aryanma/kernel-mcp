@@ -162,7 +162,7 @@ async def execute_playwright(session_id: str, code: str) -> dict:
     Returns:
         {success: bool, result: any} - the return value of your code
     """
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=300.0) as client:
         resp = await client.post(
             f"{KERNEL_API_BASE}/browsers/{session_id}/playwright/execute",
             headers=_headers(),
@@ -296,7 +296,7 @@ async def invoke_action(
     if payload:
         body["payload"] = json.dumps(payload)
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=300.0) as client:
         resp = await client.post(f"{KERNEL_API_BASE}/invocations", headers=_headers(), json=body)
         if resp.status_code not in (200, 202):
             raise Exception(f"Kernel API error ({resp.status_code}): {resp.text}")
