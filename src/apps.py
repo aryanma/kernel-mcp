@@ -33,7 +33,7 @@ async def list_profiles(limit: int = 20, offset: int = 0) -> list[dict]:
     return parse_list_response(resp.json())
 
 
-@tool(description="Create or update a browser profile from a session")
+@tool(description="Save browser session state (cookies, localStorage) to a profile. Use to persist logins. Call delete_browser after saving to free resources.")
 async def save_profile(session_id: str, name: str | None = None) -> dict:
     """Save browser session state to a new profile."""
     body: dict[str, Any] = {"session_id": session_id}
@@ -46,7 +46,7 @@ async def save_profile(session_id: str, name: str | None = None) -> dict:
     return resp.json()
 
 
-@tool(description="Delete a browser profile")
+@tool(description="Delete a browser profile. WARNING: This is irreversible and deletes saved login state. Confirm user intent first.")
 async def delete_profile(profile_id: str) -> dict:
     """Delete a browser profile."""
     path = f"/profiles/{profile_id}"
@@ -109,7 +109,7 @@ async def get_deployment(deployment_id: str) -> dict:
 # =============================================================================
 
 
-@tool(description="Invoke an action on a Kernel app")
+@tool(description="Invoke a Kernel app action. Returns invocation ID for tracking. Use async_mode=True for long tasks, then poll with get_invocation.")
 async def invoke_action(
     app_name: str,
     action_name: str,

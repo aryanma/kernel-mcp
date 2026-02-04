@@ -9,6 +9,7 @@ import base64
 from typing import Any, Literal
 
 from dedalus_mcp import tool
+from dedalus_mcp.types import ImageContent
 
 from client import (
     TIMEOUT_FAST,
@@ -25,7 +26,7 @@ from client import (
 # =============================================================================
 
 
-@tool(description="Create a new cloud browser session")
+@tool(description="Launch a new sandboxed browser in Kernel's cloud. Check list_browsers first to avoid unnecessary sessions. Use stealth=True for scraping, profile_id to maintain auth state across sessions.")
 async def create_browser(
     stealth: bool = True,
     headless: bool = False,
@@ -75,7 +76,7 @@ async def get_browser(session_id: str) -> dict:
     return resp.json()
 
 
-@tool(description="List active browser sessions")
+@tool(description="List active browser sessions. Check this before creating new browsers to reuse existing sessions and avoid resource waste.")
 async def list_browsers(limit: int = 20, offset: int = 0) -> list[dict]:
     """List browser sessions."""
     resp = await request("GET", "/browsers", TIMEOUT_MEDIUM, params={"limit": limit, "offset": offset})
@@ -84,7 +85,7 @@ async def list_browsers(limit: int = 20, offset: int = 0) -> list[dict]:
     return parse_list_response(resp.json())
 
 
-@tool(description="Delete a browser session")
+@tool(description="Delete a browser session. Always clean up sessions when done to free resources. Call this after save_profile if preserving state.")
 async def delete_browser(session_id: str) -> dict:
     """Delete a browser session."""
     path = f"/browsers/{session_id}"
@@ -99,14 +100,14 @@ async def delete_browser(session_id: str) -> dict:
 # =============================================================================
 
 
-@tool(description="Take a screenshot of a browser session")
+@tool(description="Capture browser page as base64 PNG. Use this instead of page.screenshot() in execute_playwright code.")
 async def screenshot(
     session_id: str,
     region_x: int | None = None,
     region_y: int | None = None,
     region_width: int | None = None,
     region_height: int | None = None,
-) -> dict:
+) -> ImageContent:
     """Take a screenshot. Optionally specify a region."""
     path = f"/browsers/{session_id}/computer/screenshot"
     body: dict[str, Any] = {}
@@ -117,10 +118,10 @@ async def screenshot(
     if resp.status_code != 200:
         raise KernelAPIError(resp.status_code, resp.text, path)
     img_base64 = base64.b64encode(resp.content).decode("utf-8")
-    return {"image": img_base64, "format": "png", "size_bytes": len(resp.content)}
+    return ImageContent(type="image", data=img_base64, mimeType="image/png")
 
 
-@tool(description="Click mouse at x,y coordinates")
+@tool(description="Click at x,y pixel coordinates. Prefer execute_playwright with selectors instead - only use this for pixel-precise clicks when selectors fail.")
 async def click_mouse(
     session_id: str,
     x: int,
@@ -183,7 +184,7 @@ async def drag_mouse(
     return {"success": True, "dragged": {"from": [start_x, start_y], "to": [end_x, end_y]}}
 
 
-@tool(description="Type text in the browser")
+@tool(description="Type text at cursor position. Prefer execute_playwright with page.fill() instead - only use this when you need raw keystroke simulation.")
 async def type_text(
     session_id: str,
     text: str,
@@ -219,7 +220,7 @@ async def press_keys(
     return {"success": True, "pressed": keys}
 
 
-@tool(description="Scroll the page")
+@tool(description="Scroll at x,y position. Positive delta_y scrolls down. Can also use execute_playwright with page.mouse.wheel() for more control.")
 async def scroll(
     session_id: str,
     x: int,
@@ -235,13 +236,13 @@ async def scroll(
     return {"success": True, "scrolled": {"delta_x": delta_x, "delta_y": delta_y}}
 
 
-@tool(description="Execute Playwright/TypeScript code in a browser - navigate, scrape, interact with pages")
+@tool(description="Run Playwright code in browser. PREFERRED for all interactions - clicking, typing, searching, scraping. Consolidate operations into single calls. Avoid page.screenshot() here; use the screenshot tool instead.")
 async def execute_playwright(session_id: str, code: str) -> dict:
-    """Execute Playwright code in the browser.
+    """Execute Playwright/TypeScript code directly in the browser VM.
 
     Args:
         session_id: The browser session ID
-        code: Playwright/TypeScript code to execute. Use `page` object.
+        code: Playwright code using `page` object. Must return a value.
 
     Example:
         await page.goto('https://example.com');
